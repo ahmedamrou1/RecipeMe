@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'auth_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -75,7 +76,9 @@ class OnboardingScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    // TODO: Navigate to next flow
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage(), // Login flow
+                      ),
+                    );
                   },
                   child: const Text(
                     "Let's Get Started",
