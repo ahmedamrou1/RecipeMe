@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_page.dart';
 
 void main() 
 {
@@ -355,14 +356,11 @@ class _PasswordPageState extends State<PasswordPage>
                     {
                       if (_formKey.currentState!.validate()) 
                       {
-                        ScaffoldMessenger.of(context).showSnackBar
+                        // TEMP: Navigate to ProfilePage after signup until backend hookup (remember to change once implemented on GitHub)
+                        Navigator.pushReplacement
                         (
-                          SnackBar(
-                            // Show success message
-                            content: Text( "Account created for ${widget.email}"),
-                            behavior: SnackBarBehavior.floating,
-                            showCloseIcon: true,
-                          ),
+                          context,
+                          MaterialPageRoute(builder: (_) => const ProfilePage()),
                         );
                       }
                     },
