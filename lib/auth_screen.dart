@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'profile_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -136,15 +137,19 @@ class _LoginPageState extends State<LoginPage> {
                                 email: _emailController.text,
                                 password: _passwordController.text,
                               );
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Signed in successfully!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            // TODO: Navigate to profile setup
-                          }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Signed in successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              // Navigate to profile page
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ProfilePage()),
+                              );
+                            }
                         } on FirebaseAuthException catch (e) {
                           print(e.code);
                           String errorMessage = 'An error occurred';
@@ -196,15 +201,19 @@ class _LoginPageState extends State<LoginPage> {
                                 email: _emailController.text,
                                 password: _passwordController.text,
                               );
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Account created successfully!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            // TODO: Navigate to profile setup
-                          }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Account created successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              // Navigate to profile page
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ProfilePage()),
+                              );
+                            }
                         } on FirebaseAuthException catch (e) {
                           String errorMessage = 'An error occurred';
                           if (e.code == 'weak-password') {
