@@ -1,5 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_signin_button/flutter_signin_button.dart';
+
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  clientId: '679604839287-fsgkp1q3seji5k9gltju2vn7hdo8tpcd.apps.googleusercontent.com', // iOS client ID from Google Cloud Console
+);
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -61,6 +67,7 @@ class _LoginPageState extends State<LoginPage> {
                     fontSize: 26,
                     color: Colors.black,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 6),
                 const Text(
@@ -232,6 +239,82 @@ class _LoginPageState extends State<LoginPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Horizontal divider with "or" text
+                Row(
+                  children: const [
+                    Expanded(
+                      child: Divider(
+                        thickness: 1,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'or',
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Divider(
+                        thickness: 1,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Google Sign In button
+                SizedBox(
+                  width: double.infinity,
+                  height: 49,
+                  child: SignInButton(
+                    Buttons.Google,
+                    text: "Sign in with Google",
+                    onPressed: () async {
+                      try {
+                        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+                        if (googleUser == null) return;
+
+                        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+                        final credential = GoogleAuthProvider.credential(
+                          accessToken: googleAuth.accessToken,
+                          idToken: googleAuth.idToken,
+                        );
+
+                        await FirebaseAuth.instance.signInWithCredential(credential);
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Signed in with Google successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          // TODO: Navigate to profile setup
+                        }
+                      } catch (e) {
+                        print(e);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to sign in with Google'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                 ),
               ],
