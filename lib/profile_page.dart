@@ -20,27 +20,27 @@ class _ProfilePageState extends State<ProfilePage>
     return Scaffold
     (
       backgroundColor: const Color(0xFF50C878),
-      body: Stack
+      body: Container
       (
-        children:
-        [
-          // Cover image with dark tint
-          Positioned.fill
+        decoration: BoxDecoration
+        (
+          image: DecorationImage
           (
-            child: Container
-            (
-              decoration: BoxDecoration
-              (
-                image: DecorationImage
-                (
-                  image: AssetImage('web/icons/app_background.png'),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                ),
-                color: Colors.black.withOpacity(0.3), // Dark tint overlay
-              ),
-            ),
+            image: AssetImage('web/icons/app_background.png'),
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
           ),
+        ),
+        child: Container
+        (
+          decoration: BoxDecoration
+          (
+            color: Colors.black.withOpacity(0.4), // Darker tint overlay
+          ),
+          child: Stack
+          (
+            children:
+            [
           // Content overlay
           SafeArea
           (
@@ -113,7 +113,9 @@ class _ProfilePageState extends State<ProfilePage>
               ),
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
       bottomNavigationBar: RecipeMeBottomNavBar
       (
