@@ -17,13 +17,22 @@ class OnboardingScreen extends StatelessWidget {
               // Top centered title with equal horizontal and top padding
               Padding(
                 padding: const EdgeInsets.only(top: 24),
-                child: Text(
+                child:                 Text(
                   'RecipeMe',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: 'Inter',
                     color: textColor,
-                    fontSize: 56, // 2x the original 32
-                    fontWeight: FontWeight.w700,
+                    fontSize: 56,
+                    fontWeight: FontWeight.bold,
+                    shadows: 
+                    [
+                      Shadow(
+                        offset: Offset(2,2),
+                        blurRadius: 6.0,
+                        color: Colors.black54,
+                      )
+                    ]
                   ),
                 ),
               ),

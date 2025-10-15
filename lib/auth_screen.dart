@@ -44,8 +44,8 @@ class _LoginPageState extends State<LoginPage> {
                 offset: Offset(2, 2),
                 blurRadius: 6.0,
                 color: Colors.black54,
-              )
-            ]
+              ),
+            ],
           ),
         ),
         centerTitle: true,
@@ -115,7 +115,23 @@ class _LoginPageState extends State<LoginPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 26),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Email is required';
+                    }
+                    final emailRegex = RegExp(
+                      r'^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                    );
+                    if (!emailRegex.hasMatch(value)) {
+                      return 'Enter a valid email address';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 26),
 
                     // Password field
                     TextFormField(
@@ -141,58 +157,54 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 26),
 
-                    // Sign In button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 49,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            try {
-                              final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+                // Sign In button
+                SizedBox(
+                  width: double.infinity,
+                  height: 49,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        try {
+                          final credential = await FirebaseAuth.instance
+                              .signInWithEmailAndPassword(
                                 email: _emailController.text,
                                 password: _passwordController.text,
                               );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Signed in successfully!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                                // TODO: Navigate to profile setup
-                              }
-                            } on FirebaseAuthException catch (e) {
-                              print(e.code);
-                              String errorMessage = 'An error occurred';
-                              if (e.code == 'invalid-credential') {
-                                errorMessage = 'Email or password invalid. Please try again.';
-                              }
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(errorMessage),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Signed in successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              // Navigate to profile page
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ProfilePage()),
+                              );
                             }
+                        } on FirebaseAuthException catch (e) {
+                          print(e.code);
+                          String errorMessage = 'An error occurred';
+                          if (e.code == 'invalid-credential') {
+                            errorMessage =
+                                'Email or password invalid. Please try again.';
                           }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          'Sign in',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(errorMessage),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     
@@ -254,55 +266,52 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Horizontal divider with "or" text
-                    Row(
-                      children: const [
-                        Expanded(
-                          child: Divider(
-                            thickness: 1,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'or',
-                            style: TextStyle(
-                              color: Colors.black54,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            thickness: 1,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Google Sign In button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 49,
-                      child: SignInButton(
-                        Buttons.Google,
-                        text: "Sign in with Google",
-                        onPressed: () async {
-                          try {
-                            final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-                            if (googleUser == null) return;
+                  ),
+                ),
 
-                            final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-                            final credential = GoogleAuthProvider.credential(
-                              accessToken: googleAuth.accessToken,
-                              idToken: googleAuth.idToken,
+                // Add padding between buttons
+                const SizedBox(height: 16),
+
+                // Second button
+                SizedBox(
+                  width: double.infinity,
+                  height: 49,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        try {
+                          final credential = await FirebaseAuth.instance
+                              .createUserWithEmailAndPassword(
+                                email: _emailController.text,
+                                password: _passwordController.text,
+                              );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Account created successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              // Navigate to profile page
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ProfilePage()),
+                              );
+                            }
+                        } on FirebaseAuthException catch (e) {
+                          String errorMessage = 'An error occurred';
+                          if (e.code == 'weak-password') {
+                            errorMessage = 'The password provided is too weak.';
+                          } else if (e.code == 'email-already-in-use') {
+                            errorMessage =
+                                'An account already exists for that email. Try signing in.';
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(errorMessage),
+                                backgroundColor: Colors.red,
+                              ),
                             );
 
                             await FirebaseAuth.instance.signInWithCredential(credential);
