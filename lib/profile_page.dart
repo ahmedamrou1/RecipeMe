@@ -23,7 +23,7 @@ class _ProfilePageState extends State<ProfilePage>
         (
           image: DecorationImage
           (
-            image: AssetImage('web/icons/app_background.png'),
+            image: AssetImage('assets/background.png'),
             fit: BoxFit.cover,
             alignment: Alignment.center,
           ),

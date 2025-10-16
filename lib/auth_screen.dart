@@ -2,9 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_signin_button/flutter_signin_button.dart';
+import 'package:recipeme/home_screen.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
-  clientId: '679604839287-fsgkp1q3seji5k9gltju2vn7hdo8tpcd.apps.googleusercontent.com', // iOS client ID from Google Cloud Console
+  clientId:
+      '679604839287-fsgkp1q3seji5k9gltju2vn7hdo8tpcd.apps.googleusercontent.com', // iOS client ID from Google Cloud Console
 );
 
 class LoginPage extends StatefulWidget {
@@ -44,8 +46,8 @@ class _LoginPageState extends State<LoginPage> {
                 offset: Offset(2, 2),
                 blurRadius: 6.0,
                 color: Colors.black54,
-              )
-            ]
+              ),
+            ],
           ),
         ),
         centerTitle: true,
@@ -108,7 +110,9 @@ class _LoginPageState extends State<LoginPage> {
                         if (value == null || value.isEmpty) {
                           return 'Email is required';
                         }
-                        final emailRegex = RegExp(r'^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                        final emailRegex = RegExp(
+                          r'^[a-zA-Z0-9.%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                        );
                         if (!emailRegex.hasMatch(value)) {
                           return 'Enter a valid email address';
                         }
@@ -149,10 +153,11 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
                             try {
-                              final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-                                email: _emailController.text,
-                                password: _passwordController.text,
-                              );
+                              final credential = await FirebaseAuth.instance
+                                  .signInWithEmailAndPassword(
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                  );
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -160,13 +165,19 @@ class _LoginPageState extends State<LoginPage> {
                                     backgroundColor: Colors.green,
                                   ),
                                 );
-                                // TODO: Navigate to profile setup
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => HomePage(),
+                                  ),
+                                );
                               }
                             } on FirebaseAuthException catch (e) {
                               print(e.code);
                               String errorMessage = 'An error occurred';
                               if (e.code == 'invalid-credential') {
-                                errorMessage = 'Email or password invalid. Please try again.';
+                                errorMessage =
+                                    'Email or password invalid. Please try again.';
                               }
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -195,10 +206,10 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-                    
+
                     // Add padding between buttons
                     const SizedBox(height: 16),
-                    
+
                     // Second button
                     SizedBox(
                       width: double.infinity,
@@ -207,25 +218,35 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
                             try {
-                              final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-                                email: _emailController.text,
-                                password: _passwordController.text,
-                              );
+                              final credential = await FirebaseAuth.instance
+                                  .createUserWithEmailAndPassword(
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                  );
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Account created successfully!'),
+                                    content: Text(
+                                      'Account created successfully!',
+                                    ),
                                     backgroundColor: Colors.green,
                                   ),
                                 );
-                                // TODO: Navigate to profile setup
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => HomePage(),
+                                  ),
+                                );
                               }
                             } on FirebaseAuthException catch (e) {
                               String errorMessage = 'An error occurred';
                               if (e.code == 'weak-password') {
-                                errorMessage = 'The password provided is too weak.';
+                                errorMessage =
+                                    'The password provided is too weak.';
                               } else if (e.code == 'email-already-in-use') {
-                                errorMessage = 'An account already exists for that email. Try signing in.';
+                                errorMessage =
+                                    'An account already exists for that email. Try signing in.';
                               }
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -254,17 +275,14 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Horizontal divider with "or" text
                     Row(
                       children: const [
                         Expanded(
-                          child: Divider(
-                            thickness: 1,
-                            color: Colors.black54,
-                          ),
+                          child: Divider(thickness: 1, color: Colors.black54),
                         ),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
@@ -277,16 +295,13 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         Expanded(
-                          child: Divider(
-                            thickness: 1,
-                            color: Colors.black54,
-                          ),
+                          child: Divider(thickness: 1, color: Colors.black54),
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Google Sign In button
                     SizedBox(
                       width: double.infinity,
@@ -296,32 +311,45 @@ class _LoginPageState extends State<LoginPage> {
                         text: "Sign in with Google",
                         onPressed: () async {
                           try {
-                            final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+                            final GoogleSignInAccount? googleUser =
+                                await _googleSignIn.signIn();
                             if (googleUser == null) return;
 
-                            final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+                            final GoogleSignInAuthentication googleAuth =
+                                await googleUser.authentication;
                             final credential = GoogleAuthProvider.credential(
                               accessToken: googleAuth.accessToken,
                               idToken: googleAuth.idToken,
                             );
 
-                            await FirebaseAuth.instance.signInWithCredential(credential);
-                            
+                            await FirebaseAuth.instance.signInWithCredential(
+                              credential,
+                            );
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Signed in with Google successfully!'),
+                                  content: Text(
+                                    'Signed in with Google successfully!',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
-                              // TODO: Navigate to profile setup
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => HomePage(),
+                                ),
+                              );
                             }
                           } catch (e) {
                             print(e);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Failed to sign in with Google'),
+                                  content: Text(
+                                    'Failed to sign in with Google',
+                                  ),
                                   backgroundColor: Colors.red,
                                 ),
                               );
