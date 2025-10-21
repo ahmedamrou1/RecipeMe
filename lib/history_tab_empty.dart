@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'nav_bar.dart';
+import 'home_screen.dart';
+import 'profile_page.dart';
 
 class HistoryTabEmpty extends StatefulWidget {
   const HistoryTabEmpty({super.key});
@@ -8,6 +11,31 @@ class HistoryTabEmpty extends StatefulWidget {
 }
 
 class _HistoryTabEmptyState extends State<HistoryTabEmpty> {
+  int _selectedIndex = 0; // History tab is selected
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    // Handle navigation based on index
+    switch (index) {
+      case 0:
+        // Already on history page
+        break;
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => MainPage()),
+        );
+        break;
+      case 2:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => ProfilePage()),
+        );
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +167,10 @@ class _HistoryTabEmptyState extends State<HistoryTabEmpty> {
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: NavBar(
+        currentIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
       ),
     );
   }
