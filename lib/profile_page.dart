@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'nav_bar.dart';
+import 'home_screen.dart';
+import 'history_tab.dart';
 
 class ProfilePage extends StatefulWidget
 {
@@ -10,6 +13,39 @@ class ProfilePage extends StatefulWidget
 
 class _ProfilePageState extends State<ProfilePage>
 {
+  int _selectedIndex = 2; // Profile tab is selected
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    // Handle navigation based on index - direct switching without animation
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => HistoryTab(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => MainPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 2:
+        // Already on profile page
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context)
@@ -17,27 +53,30 @@ class _ProfilePageState extends State<ProfilePage>
     return Scaffold
     (
       backgroundColor: const Color(0xFF50C878),
-      body: Container
+      body: Stack
       (
-        decoration: BoxDecoration
-        (
-          image: DecorationImage
+        children:
+        [
+          // Background image
+          Container
           (
-            image: AssetImage('assets/background.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+            decoration: BoxDecoration
+            (
+              image: DecorationImage
+              (
+                image: AssetImage('assets/background.png'),
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-        ),
-        child: Container
-        (
-          decoration: BoxDecoration
+          // Dark overlay
+          Container
           (
-            color: Colors.black.withOpacity(0.4), // Darker tint overlay
+            decoration: BoxDecoration
+            (
+              color: Colors.black.withOpacity(0.4), // Darker tint overlay
+            ),
           ),
-          child: Stack
-          (
-            children:
-            [
           // Content overlay
           SafeArea
           (
@@ -110,9 +149,11 @@ class _ProfilePageState extends State<ProfilePage>
               ),
             ),
           ),
-            ],
-          ),
-        ),
+        ],
+      ),
+      bottomNavigationBar: NavBar(
+        currentIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
       ),
     );
   }

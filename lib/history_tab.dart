@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'nav_bar.dart';
+import 'home_screen.dart';
+import 'profile_page.dart';
 
 class HistoryTab extends StatefulWidget
 {
@@ -10,16 +13,65 @@ class HistoryTab extends StatefulWidget
 
 class _HistoryTabState extends State<HistoryTab>
 {
+  int _selectedIndex = 0; // History tab is selected
 
-  final List<Map<String, String>> _recipes = const
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    // Handle navigation based on index - direct switching without animation
+    switch (index) {
+      case 0:
+        // Already on history page
+        break;
+      case 1:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => MainPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+      case 2:
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => ProfilePage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+        break;
+    }
+  }
+
+  final List<Map<String, dynamic>> _recipes = const
   [
-    { 'title': 'Avocado Toast', 'summary': 'Crispy toast with smashed avocado' },
-    { 'title': 'Pesto Pasta', 'summary': 'Basil pesto with al dente pasta' },
-    { 'title': 'Berry Smoothie', 'summary': 'Mixed berries and yogurt' },
-    { 'title': 'Veggie Omelette', 'summary': 'Fluffy eggs with veggies' },
+    { 
+      'title': 'Avocado Toast', 
+      'summary': 'Crispy toast with smashed avocado',
+      'image': 'https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=400&h=300&fit=crop',
+    },
+    { 
+      'title': 'Pesto Pasta', 
+      'summary': 'Basil pesto with al dente pasta',
+      'image': 'https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=300&fit=crop',
+    },
+    { 
+      'title': 'Berry Smoothie', 
+      'summary': 'Mixed berries and yogurt',
+      'image': 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=400&h=300&fit=crop',
+    },
+    { 
+      'title': 'Veggie Omelette', 
+      'summary': 'Fluffy eggs with veggies',
+      'image': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=400&h=300&fit=crop',
+    },
   ];
 
-  void _openRecipeModal(Map<String, String> recipe)
+  void _openRecipeModal(Map<String, dynamic> recipe)
   {
     showDialog
     (
@@ -62,11 +114,23 @@ class _HistoryTabState extends State<HistoryTab>
                       height: 140,
                       decoration: BoxDecoration
                       (
-                        color: const Color(0xFF50C878).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFF50C878).withOpacity(0.35)),
                       ),
-                      child: const Center(child: Text('Recipe Image Placeholder')),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          recipe['image'] ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: const Color(0xFF50C878).withOpacity(0.15),
+                              child: const Center(child: Text('Image not available')),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text('Ingredients', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -140,10 +204,21 @@ class _HistoryTabState extends State<HistoryTab>
                       height: 52,
                       decoration: BoxDecoration
                       (
-                        color: Colors.black.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.restaurant, color: Colors.black87),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          recipe['image'] ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&h=100&fit=crop',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.black.withOpacity(0.08),
+                              child: const Icon(Icons.restaurant, color: Colors.black87),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded
@@ -174,6 +249,10 @@ class _HistoryTabState extends State<HistoryTab>
             ),
           );
         },
+      ),
+      bottomNavigationBar: NavBar(
+        currentIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
       ),
     );
   }

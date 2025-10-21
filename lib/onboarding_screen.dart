@@ -21,9 +21,17 @@ class OnboardingScreen extends StatelessWidget {
                   'RecipeMe',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: textColor,
-                    fontSize: 56, // 2x the original 32
-                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 54,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        offset: Offset(2, 2),
+                        blurRadius: 6.0,
+                        color: Colors.black54,
+                      )
+                    ]
                   ),
                 ),
               ),
@@ -76,7 +84,12 @@ class OnboardingScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage(), // Login flow
+                    Navigator.pushReplacement(
+                      context, 
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => const LoginPage(),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
                       ),
                     );
                   },
