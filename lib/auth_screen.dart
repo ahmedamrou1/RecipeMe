@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_signin_button/flutter_signin_button.dart';
 import 'home_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   clientId:
-      '679604839287-fsgkp1q3seji5k9gltju2vn7hdo8tpcd.apps.googleusercontent.com', // iOS client ID from Google Cloud Console
+      dotenv.env['GOOGLE_CLIENT_ID'], // iOS client ID from Google Cloud Console
 );
 
 class LoginPage extends StatefulWidget {
