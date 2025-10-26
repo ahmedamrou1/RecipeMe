@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'history_tab.dart';
 import 'profile_page.dart';
+import 'package:dart_openai/dart_openai.dart';
 
 void main() => runApp(MyApp());
 
@@ -10,6 +11,37 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(title: 'HomePage', home: MainPage());
+  }
+}
+
+class Chatbot {
+  final userMessage = OpenAIChatCompletionChoiceMessageModel(
+    content: [
+      OpenAIChatCompletionChoiceMessageContentItemModel.text(
+        "this is a test. tell me what you see in this image",
+      ),
+
+      //! image url contents are allowed only for models with image support such gpt-4.
+      OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl(
+        "/recipeme/user_photos/image",
+      ),
+    ],
+    role: OpenAIChatMessageRole.user,
+  );
+
+  // Add this method to call the OpenAI chat completion endpoint
+  Future<OpenAIChatCompletionModel> createChatCompletion(
+      ) async {
+    final OpenAIChatCompletionModel chatCompletion =
+        await OpenAI.instance.chat.create(
+      model: "gpt-3.5-turbo-1106",
+      responseFormat: {"type": "json_object"},
+      seed: 6,
+      messages: [userMessage],
+      temperature: 0.2,
+      maxTokens: 500,
+    );
+    return chatCompletion;
   }
 }
 
@@ -117,17 +149,91 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _confirmImage() {
-    // Handle image confirmation here
-    setState(() {
-      _selectedImage = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Image confirmed!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+  Future<void> _confirmImage() async {
+    if (_selectedImage == null) return;
+
+    try {
+      final url = "url";
+
+      // Build message that contains the prompt and the base64 payload as text
+      final requestMessage = OpenAIChatCompletionChoiceMessageModel(
+        content: [
+          OpenAIChatCompletionChoiceMessageContentItemModel.text(
+            "Please describe the image linked below:",
+          ),
+          OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl(
+            url
+            
+          ),
+        ],
+        role: OpenAIChatMessageRole.user,
+      );
+
+      print('Sending request with image url size bytes: ${url}');
+
+      // Call OpenAI and await result
+      final chatCompletion = await OpenAI.instance.chat.create(
+        model: "gpt-3.5-turbo-1106",
+        responseFormat: {"type": "json_object"},
+        seed: 6,
+        messages: [requestMessage],
+        temperature: 0.2,
+        maxTokens: 500,
+      );
+
+      print('OpenAI full response: $chatCompletion');
+
+      try {
+        final usage = chatCompletion.usage;
+        print('Tokens - prompt: ${usage.promptTokens}, completion: ${usage.completionTokens}, total: ${usage.totalTokens}');
+      } catch (e) {
+        print('No usage info available: $e');
+      }
+
+      // Extract a readable string from the response (best-effort)
+      String resultText = "";
+      try {
+        if (chatCompletion.choices.isNotEmpty) {
+          final choice = chatCompletion.choices[0];
+          final message = choice.message;
+          final contents = message.content;
+          if (contents != null && contents.isNotEmpty) {
+            final textItem = contents.firstWhere(
+              (c) => c.text != null && c.text!.isNotEmpty,
+              orElse: () => contents.first,
+            );
+            resultText = textItem.text ?? choice.toString();
+          } else {
+            resultText = choice.toString();
+          }
+        } else {
+          resultText = chatCompletion.toString();
+        }
+      } catch (_) {
+        resultText = chatCompletion.toString();
+      }
+
+      // Clear preview and show result
+      setState(() {
+        _selectedImage = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('OpenAI: ${resultText.length > 200 ? resultText.substring(0, 200) + "..." : resultText}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e, st) {
+      print('Error sending image to OpenAI: $e');
+      print(st);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to read/send image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _cancelImage() {

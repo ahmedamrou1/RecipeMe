@@ -30,9 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^4.1.1
-  firebase_auth: ^6.1.0
-  cloud_firestore: ^6.0.2
   google_sign_in: ^6.1.0
   flutter_signin_button: ^2.1.1
   image_picker: ^1.0.7
@@ -41,6 +38,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flutter_dotenv: ^6.0.0
+  dart_openai: ^5.1.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  supabase_flutter: ^2.10.3
 
 dev_dependencies:
   flutter_test:

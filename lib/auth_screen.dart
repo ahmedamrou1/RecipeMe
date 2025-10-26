@@ -1,14 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_signin_button/flutter_signin_button.dart';
-import 'home_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
-final GoogleSignIn _googleSignIn = GoogleSignIn(
-  clientId:
-      dotenv.env['GOOGLE_CLIENT_ID'], // iOS client ID from Google Cloud Console
-);
+import 'package:flutter_signin_button/flutter_signin_button.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'home_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,12 +16,159 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final supabase = Supabase.instance.client;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signInWithEmail() async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      final user = supabase.auth.currentUser;
+
+      if (user != null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Signed in successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainPage()),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sign in failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } on AuthApiException {
+      // Map Supabase API errors about malformed emails to the same validator message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a valid email address'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign in error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _signUpWithEmail() async {
+    try {
+      await supabase.auth.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      final user = supabase.auth.currentUser;
+
+      if (user != null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Account created successfully! Please verify your email if required.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainPage()),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Check your email to complete signup.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } on AuthApiException {
+      // If Supabase indicates the email is invalid, show the same validator message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a valid email address'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign up error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<AuthResponse> _googleSignIn() async {
+    final webClientId = dotenv.env['WEB_CLIENT_ID'];
+    final iosClientId = dotenv.env['IOS_CLIENT_ID'];
+
+    // Use the google_sign_in constructor; pass clientId if needed
+    final GoogleSignIn signIn = GoogleSignIn(
+      clientId: iosClientId ?? webClientId,
+      scopes: ['email', 'profile'],
+    );
+
+    // Perform the sign in
+    final googleAccount = await signIn.signIn();
+    if (googleAccount == null) {
+      throw 'Sign in aborted by user.';
+    }
+
+    final googleAuthentication = await googleAccount.authentication;
+    final idToken = googleAuthentication.idToken;
+    final accessToken = googleAuthentication.accessToken;
+
+    if (idToken == null) {
+      throw 'No ID Token found.';
+    }
+    Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainPage()),
+          );
+
+    return supabase.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: accessToken,
+    );
   }
 
   @override
@@ -153,42 +295,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
-                            try {
-                              final credential = await FirebaseAuth.instance
-                                  .signInWithEmailAndPassword(
-                                    email: _emailController.text,
-                                    password: _passwordController.text,
-                                  );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Signed in successfully!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => MainPage(),
-                                  ),
-                                );
-                              }
-                            } on FirebaseAuthException catch (e) {
-                              print(e.code);
-                              String errorMessage = 'An error occurred';
-                              if (e.code == 'invalid-credential') {
-                                errorMessage =
-                                    'Email or password invalid. Please try again.';
-                              }
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(errorMessage),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
+                            await _signInWithEmail();
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -211,53 +318,14 @@ class _LoginPageState extends State<LoginPage> {
                     // Add padding between buttons
                     const SizedBox(height: 16),
 
-                    // Second button
+                    // Create Account button
                     SizedBox(
                       width: double.infinity,
                       height: 49,
                       child: ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
-                            try {
-                              final credential = await FirebaseAuth.instance
-                                  .createUserWithEmailAndPassword(
-                                    email: _emailController.text,
-                                    password: _passwordController.text,
-                                  );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Account created successfully!',
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => MainPage(),
-                                  ),
-                                );
-                              }
-                            } on FirebaseAuthException catch (e) {
-                              String errorMessage = 'An error occurred';
-                              if (e.code == 'weak-password') {
-                                errorMessage =
-                                    'The password provided is too weak.';
-                              } else if (e.code == 'email-already-in-use') {
-                                errorMessage =
-                                    'An account already exists for that email. Try signing in.';
-                              }
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(errorMessage),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
+                            await _signUpWithEmail();
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -303,7 +371,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 20),
 
-                    // Google Sign In button
+                    // Google Sign In button (supabase OAuth)
                     SizedBox(
                       width: double.infinity,
                       height: 49,
@@ -311,51 +379,7 @@ class _LoginPageState extends State<LoginPage> {
                         Buttons.Google,
                         text: "Sign in with Google",
                         onPressed: () async {
-                          try {
-                            final GoogleSignInAccount? googleUser =
-                                await _googleSignIn.signIn();
-                            if (googleUser == null) return;
-
-                            final GoogleSignInAuthentication googleAuth =
-                                await googleUser.authentication;
-                            final credential = GoogleAuthProvider.credential(
-                              accessToken: googleAuth.accessToken,
-                              idToken: googleAuth.idToken,
-                            );
-
-                            await FirebaseAuth.instance.signInWithCredential(
-                              credential,
-                            );
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Signed in with Google successfully!',
-                                  ),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MainPage(),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            print(e);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Failed to sign in with Google',
-                                  ),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
+                          await _googleSignIn();
                         },
                       ),
                     ),
