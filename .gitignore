@@ -48,5 +48,5 @@ app.*.map.json
 .env
 
 # Google services
-android/app/google-services.json
-ios/Runner/google-service.plist
+android/app/GoogleService-Info.json
+ios/Runner/GoogleService-Info.plist
