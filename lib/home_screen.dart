@@ -1,9 +1,15 @@
+import 'dart:convert';
+import 'edit_ingredients.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 import 'history_tab.dart';
 import 'profile_page.dart';
-import 'package:dart_openai/dart_openai.dart';
+import 'package:http/http.dart' as http;
+// compression removed
+// ...existing code... (removed unused import)
 
 void main() => runApp(MyApp());
 
@@ -11,37 +17,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(title: 'HomePage', home: MainPage());
-  }
-}
-
-class Chatbot {
-  final userMessage = OpenAIChatCompletionChoiceMessageModel(
-    content: [
-      OpenAIChatCompletionChoiceMessageContentItemModel.text(
-        "this is a test. tell me what you see in this image",
-      ),
-
-      //! image url contents are allowed only for models with image support such gpt-4.
-      OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl(
-        "/recipeme/user_photos/image",
-      ),
-    ],
-    role: OpenAIChatMessageRole.user,
-  );
-
-  // Add this method to call the OpenAI chat completion endpoint
-  Future<OpenAIChatCompletionModel> createChatCompletion(
-      ) async {
-    final OpenAIChatCompletionModel chatCompletion =
-        await OpenAI.instance.chat.create(
-      model: "gpt-3.5-turbo-1106",
-      responseFormat: {"type": "json_object"},
-      seed: 6,
-      messages: [userMessage],
-      temperature: 0.2,
-      maxTokens: 500,
-    );
-    return chatCompletion;
   }
 }
 
@@ -53,7 +28,11 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 1; // Default to HomePage
 
-  final _pages = [HistoryPage(), HomePage(), Center(child: Text('Profile Page'))];
+  final _pages = [
+    HistoryPage(),
+    HomePage(),
+    Center(child: Text('Profile Page')),
+  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -65,7 +44,8 @@ class _MainPageState extends State<MainPage> {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => HistoryTab(),
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                HistoryTab(),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
@@ -78,7 +58,8 @@ class _MainPageState extends State<MainPage> {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => ProfilePage(),
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                ProfilePage(),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
@@ -106,7 +87,10 @@ class _MainPageState extends State<MainPage> {
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
           items: [
-            BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history),
+              label: 'History',
+            ),
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
@@ -132,13 +116,15 @@ class _HomePageState extends State<HomePage> {
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
+  // image compression removed
+
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 80,
+        imageQuality: 100,
       );
-      
+
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
@@ -153,77 +139,236 @@ class _HomePageState extends State<HomePage> {
     if (_selectedImage == null) return;
 
     try {
-      final url = "url";
+      final supabase = Supabase.instance.client;
+      final apiKey = dotenv.env['OPENAI_API_KEY'];
 
-      // Build message that contains the prompt and the base64 payload as text
-      final requestMessage = OpenAIChatCompletionChoiceMessageModel(
-        content: [
-          OpenAIChatCompletionChoiceMessageContentItemModel.text(
-            "Please describe the image linked below:",
-          ),
-          OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl(
-            url
-            
-          ),
-        ],
-        role: OpenAIChatMessageRole.user,
-      );
-
-      print('Sending request with image url size bytes: ${url}');
-
-      // Call OpenAI and await result
-      final chatCompletion = await OpenAI.instance.chat.create(
-        model: "gpt-3.5-turbo-1106",
-        responseFormat: {"type": "json_object"},
-        seed: 6,
-        messages: [requestMessage],
-        temperature: 0.2,
-        maxTokens: 500,
-      );
-
-      print('OpenAI full response: $chatCompletion');
-
-      try {
-        final usage = chatCompletion.usage;
-        print('Tokens - prompt: ${usage.promptTokens}, completion: ${usage.completionTokens}, total: ${usage.totalTokens}');
-      } catch (e) {
-        print('No usage info available: $e');
+      // Ensure we have a selected image file
+      if (_selectedImage == null) {
+        throw 'No image selected';
       }
 
-      // Extract a readable string from the response (best-effort)
-      String resultText = "";
+      final uploadedPhoto = _selectedImage!;
+
+      // Create a unique filename to avoid collisions
+      final fileName =
+          'user_photos/image_${DateTime.now().millisecondsSinceEpoch}.png';
+
+      // Prepare a variable that will hold the publicly accessible URL of the uploaded image
+      String url = '';
+
       try {
-        if (chatCompletion.choices.isNotEmpty) {
-          final choice = chatCompletion.choices[0];
-          final message = choice.message;
-          final contents = message.content;
-          if (contents != null && contents.isNotEmpty) {
-            final textItem = contents.firstWhere(
-              (c) => c.text != null && c.text!.isNotEmpty,
-              orElse: () => contents.first,
+        final uploadResponse = await supabase.storage
+            .from('images')
+            .upload(
+              fileName,
+              uploadedPhoto,
+              fileOptions: const FileOptions(
+                cacheControl: '3600',
+                upsert: true,
+              ),
             );
-            resultText = textItem.text ?? choice.toString();
+        print('Upload response: $uploadResponse');
+
+        // Build the public URL using the SUPABASE_URL environment variable.
+        // This avoids depending on SDK return shapes and works for public buckets.
+        final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+        if (supabaseUrl.isEmpty) {
+          throw 'SUPABASE_URL not found in environment';
+        }
+
+        url = "https://wilshirerefrigeration.com/wp-content/uploads/2020/07/Open-Refrigerator-With-Food-Inside-scaled-1.jpg"; // $supabaseUrl/storage/v1/object/public/images/$fileName';
+        print('Public URL: $url');
+      } catch (e) {
+        print('Supabase upload error: $e');
+        rethrow;
+      }
+
+      // Prepare a container for the OpenAI textual result we will show later.
+      String resultText = '';
+
+      // Use the Responses API which supports multimodal inputs (text + images).
+      // We send the image URL in the `image_url` field as an object: {"url": "..."}
+      // Choose a vision-capable model. Set OPENAI_VISION_MODEL in .env to override.
+      final visionModel = 'gpt-4o-mini';
+      if (apiKey == null || apiKey.isEmpty) {
+        throw 'OPENAI_API_KEY not set in environment';
+      }
+
+      // Build request pieces for readability and send to Responses API
+      final uri = Uri.parse('https://api.openai.com/v1/responses');
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      };
+
+      final payload = {
+        'model': visionModel,
+        'input': [
+          {
+            'role': 'user',
+            'content': [
+              {
+                'type': 'input_text',
+                'text':
+                    'You are the AI for a recipe generation app. You are to classify each of the items in this image of fridge. Respond with a JSON structured {item1: quantity, item2: quantity}. If the image is not clear enough, respond with 0.',
+              },
+              {'type': 'input_image', 'image_url': url},
+            ],
+          },
+        ],
+        'temperature': 0.2,
+      };
+
+      final body = jsonEncode(payload);
+      final response = await http.post(uri, headers: headers, body: body);
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to generate response: ${response.statusCode} ${response.body}',
+        );
+      }
+
+      final data = jsonDecode(response.body);
+      print(data);
+
+      // Responses API returns an 'output' array with mixed content. Extract
+      // textual pieces (type: output_text) and concatenate them.
+      String extracted = '';
+      try {
+        final output = data['output'];
+        if (output is List && output.isNotEmpty) {
+          for (final item in output) {
+            if (item is Map && item['content'] is List) {
+              for (final c in item['content']) {
+                if (c is Map &&
+                    c['type'] == 'output_text' &&
+                    c['text'] != null) {
+                  extracted += c['text'].toString();
+                } else if (c is String) {
+                  extracted += c;
+                }
+              }
+            } else if (item is String) {
+              extracted += item;
+            }
+          }
+        }
+      } catch (e) {
+        print('Failed to parse Responses output: $e');
+      }
+
+      resultText = extracted.isNotEmpty ? extracted : data.toString();
+      // Print only the extracted textual output from the model to reduce logs
+      print('OpenAI output: $resultText');
+      final _resultTrim = resultText.trim();
+      if (_resultTrim == '0' || _resultTrim.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Image is not clear enough. Try taking a clearer photo.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        // Best-effort cleanup of the uploaded file
+        try {
+          await supabase.storage.from('images').remove([fileName]);
+        } catch (e) {
+          print('Failed to delete uploaded file after unclear image: $e');
+        }
+
+        // Clear preview and return early
+        if (context.mounted) {
+          setState(() {
+            _selectedImage = null;
+          });
+        }
+        return;
+      }
+
+      try {
+        // Accept several possible shapes from the AI and normalize into
+        // Map<String, dynamic> where each key is the ingredient name and
+        // the value is the quantity (as a String). Example accepted shapes:
+        // 1) { "apples": {"quantity": 3}, ... }
+        // 2) { "apples": 3, ... }
+        // 3) ["apples", "oranges"]
+        // 4) [{"name":"apples","quantity":3}, ...]
+        // Sanitize AI output: strip markdown fences and any surrounding text
+        // so `jsonDecode` gets a clean JSON string. AI often returns:
+        // ```json\n{...}\n```
+        String sanitized = resultText.trim();
+
+        // If the model returned a fenced block, remove the fences and language tag
+        if (sanitized.startsWith('```')) {
+          // remove leading ```... and trailing ``` if present
+          // e.g. ```json\n{...}\n``` -> { ... }
+          // Find first brace after the fence
+          final firstBrace = sanitized.indexOf(RegExp(r'[\[{]'));
+          final lastBrace = sanitized.lastIndexOf(RegExp(r'[\]}]'));
+          if (firstBrace != -1 && lastBrace != -1 && lastBrace >= firstBrace) {
+            sanitized = sanitized.substring(firstBrace, lastBrace + 1);
           } else {
-            resultText = choice.toString();
+            // fallback: strip backticks
+            sanitized = sanitized.replaceAll('```', '');
           }
         } else {
-          resultText = chatCompletion.toString();
+          // Also attempt to extract the first JSON-looking substring if there is
+          // surrounding explanatory text.
+          final firstBrace = sanitized.indexOf(RegExp(r'[\[{]'));
+          final lastBrace = sanitized.lastIndexOf(RegExp(r'[\]}]'));
+          if (firstBrace != -1 && lastBrace != -1 && lastBrace >= firstBrace) {
+            sanitized = sanitized.substring(firstBrace, lastBrace + 1);
+          }
         }
-      } catch (_) {
-        resultText = chatCompletion.toString();
+
+        final parsed = jsonDecode(sanitized);
+        final Map<String, dynamic> normalized = {};
+
+        if (parsed is Map) {
+          parsed.forEach((key, value) {
+            if (value is Map && value.containsKey('quantity')) {
+              normalized[key.toString()] = value['quantity'].toString();
+            } else if (value is num || value is String) {
+              normalized[key.toString()] = value.toString();
+            } else {
+              // Fallback to string representation
+              normalized[key.toString()] = value?.toString() ?? '';
+            }
+          });
+        } else if (parsed is List) {
+          for (final item in parsed) {
+            if (item is String) {
+              normalized[item] = '1';
+            } else if (item is Map) {
+              final name = item['name'] ?? item['ingredient'] ?? item.keys.isNotEmpty ? item.keys.first : null;
+              final qty = item['quantity'] ?? item['qty'] ?? '1';
+              if (name != null) normalized[name.toString()] = qty.toString();
+            }
+          }
+        } else {
+          throw 'Unexpected ingredients JSON structure';
+        }
+
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EditIngredientsPage(
+                initialIngredients: normalized,
+                imageUrl: url,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        print('Invalid JSON format from AI: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to parse ingredients from AI')),
+        );
       }
-
-      // Clear preview and show result
-      setState(() {
-        _selectedImage = null;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('OpenAI: ${resultText.length > 200 ? resultText.substring(0, 200) + "..." : resultText}'),
-          backgroundColor: Colors.green,
-        ),
-      );
     } catch (e, st) {
       print('Error sending image to OpenAI: $e');
       print(st);
@@ -303,11 +448,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 child: IconButton(
-                  icon: Icon(
-                    Icons.camera_alt,
-                    size: 40,
-                    color: Colors.black,
-                  ),
+                  icon: Icon(Icons.camera_alt, size: 40, color: Colors.black),
                   onPressed: _pickImage,
                 ),
               ),
@@ -322,10 +463,7 @@ class _HomePageState extends State<HomePage> {
                   Center(
                     child: Container(
                       margin: EdgeInsets.all(20),
-                      child: Image.file(
-                        _selectedImage!,
-                        fit: BoxFit.contain,
-                      ),
+                      child: Image.file(_selectedImage!, fit: BoxFit.contain),
                     ),
                   ),
                   // Confirm button at bottom
@@ -390,11 +528,9 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-
 class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(child: Text('History Page'));
   }
 }
-

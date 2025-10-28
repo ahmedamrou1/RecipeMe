@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:recipeme/splash_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:dart_openai/dart_openai.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 
@@ -12,7 +11,6 @@ void main() async {
 
   // Diagnostics: ensure keys are present
   final supabaseKey = dotenv.env['SUPABASE_API_KEY'];
-  final openaiApiKey = dotenv.env['OPENAI_API_KEY'];
   final supabaseURL = dotenv.env['SUPABASE_URL'];
 
   if (supabaseKey == null || supabaseKey.isEmpty) {
@@ -29,12 +27,6 @@ void main() async {
       print('Supabase.initialize failed: $e');
       print(st);
     }
-  }
-
-  if (openaiApiKey == null || openaiApiKey.isEmpty) {
-    print('WARNING: OPENAI_API_KEY not found in .env. OpenAI features will be disabled.');
-  } else {
-    OpenAI.apiKey = openaiApiKey;
   }
   runApp(const RecipeMeApp());
 }
