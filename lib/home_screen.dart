@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
           throw 'SUPABASE_URL not found in environment';
         }
 
-        url = "https://wilshirerefrigeration.com/wp-content/uploads/2020/07/Open-Refrigerator-With-Food-Inside-scaled-1.jpg"; // $supabaseUrl/storage/v1/object/public/images/$fileName';
+        url = "https://substackcdn.com/image/fetch/\$s_!5MZ6!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F20cf3c47-bf52-4db6-9255-6a843711eb9b_2723x3631.jpeg"; // $supabaseUrl/storage/v1/object/public/images/$fileName';
         print('Public URL: $url');
       } catch (e) {
         print('Supabase upload error: $e');
@@ -210,7 +210,7 @@ class _HomePageState extends State<HomePage> {
               {
                 'type': 'input_text',
                 'text':
-                    'You are the AI for a recipe generation app. You are to classify each of the items in this image of fridge. Respond with a JSON structured {item1: quantity, item2: quantity}. If the image is not clear enough, respond with 0.',
+                    'You are the AI for a recipe generation app. You are to classify each of the items in this image of fridge. Respond with a JSON structured {item1: quantity, item2: quantity}. If the image is not clear enough, respond with 0 (no json).',
               },
               {'type': 'input_image', 'image_url': url},
             ],

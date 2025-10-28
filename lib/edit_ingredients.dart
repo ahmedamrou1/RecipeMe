@@ -87,13 +87,11 @@ You are an expert chef AI. Using ONLY the following available ingredients and th
   "summary": "Short summary of the dish",
   "ingredients": [{"name": "ingredient", "quantity": "amount"}],
   "directions": ["Step 1", "Step 2", "Step 3"],
-  "link": "https://..."  // A URL to an image of the prepared recipe (NOT the fridge/photo). Return a publicly accessible image URL.
 }
 
 Requirements:
 - The "ingredients" array MUST contain only the ingredients that are actually used in the recipe (do NOT include other items present in the fridge).
 - Quantities should be concise (e.g., "2", "1 cup", "2 slices").
-- The "link" field must be a valid URL (string) pointing to an image of the finished dish. If you cannot provide a URL, return an empty string for "link".
 
 Available ingredients (name -> quantity): $updatedIngredients
 
@@ -162,52 +160,36 @@ Return strictly valid JSON and nothing else (no markdown fences). If you cannot 
 
       // Normalize returned ingredients into a List<Map{name,quantity}>
       final rawIngredients = recipe['ingredients'];
-      final List<Map<String, dynamic>> normalizedIngredients = [];
+      final List<String> normalizedIngredients = [];
       if (rawIngredients is Map) {
         rawIngredients.forEach((k, v) {
           final qty = v is Map && v.containsKey('quantity') ? v['quantity'] : v;
           final qtyStr = qty?.toString() ?? '';
-          normalizedIngredients.add({
-            'name': k.toString(),
-            'quantity': qtyStr,
-            'display': qtyStr.isNotEmpty ? '${k.toString()} (${qtyStr})' : k.toString(),
-          });
+          normalizedIngredients.add("${k.toString()} ($qtyStr)");
         });
       } else if (rawIngredients is List) {
         for (final item in rawIngredients) {
           if (item is String) {
             final qty = updatedIngredients[item] ?? '1';
-            normalizedIngredients.add({
-              'name': item,
-              'quantity': qty,
-              'display': '$item ($qty)',
-            });
+            normalizedIngredients.add("$item $qty");
           } else if (item is Map) {
             final name = item['name'] ?? item['ingredient'] ?? (item.keys.isNotEmpty ? item.keys.first : null);
             final qtyRaw = item['quantity'] ?? item['qty'] ?? (name != null ? updatedIngredients[name] ?? '1' : '1');
             final qty = qtyRaw?.toString() ?? '';
-            if (name != null) normalizedIngredients.add({
-              'name': name.toString(),
-              'quantity': qty,
-              'display': qty.isNotEmpty ? '${name.toString()} ($qty)' : name.toString(),
-            });
+            normalizedIngredients.add("${name.toString()} ($qty)");
           } else {
             final s = item.toString();
-            normalizedIngredients.add({'name': s, 'quantity': '1', 'display': '$s (1)'});
+            normalizedIngredients.add("$s (1)");
           }
         }
       }
 
-      // Prefer 'link' (image of prepared recipe) returned by the model. Do NOT save
-      // the original fridge/photo URL as the recipe link.
-      final recipeLink = recipe['link'] ?? recipe['image_url'] ?? recipe['image'] ?? '';
 
       await supabase.from('recipes').insert({
         'user_id': user.id,
-        'image_url': recipeLink,
         'title': recipe['title'],
         'summary': recipe['summary'],
-        'ingredients': normalizedIngredients[2],
+        'ingredients': normalizedIngredients,
         'directions': recipe['directions'],
         'created_at': DateTime.now().toIso8601String(),
       });

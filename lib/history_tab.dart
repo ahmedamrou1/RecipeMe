@@ -130,16 +130,6 @@ class _HistoryTabState extends State<HistoryTab> {
     }
   }
 
-  String recipeImageUrl(Map<String, dynamic> recipe) {
-    final link = recipe['link'] ?? recipe['image_url'] ?? recipe['image'] ?? null;
-    if (link == null) return '';
-    if (link is String) return link;
-    try {
-      return link.toString();
-    } catch (_) {
-      return '';
-    }
-  }
 
   Widget buildIngredientsWidget(dynamic raw) {
     if (raw == null) return const Text('No ingredients listed');
@@ -240,29 +230,6 @@ class _HistoryTabState extends State<HistoryTab> {
                         style: const TextStyle(fontSize: 14, color: Colors.black87),
                       ),
                       const SizedBox(height: 16),
-                      Container(
-                        height: 140,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF50C878).withOpacity(0.35)),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            recipeImageUrl(recipe).isNotEmpty
-                                ? recipeImageUrl(recipe)
-                                : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: const Color(0xFF50C878).withOpacity(0.15),
-                                child: const Center(child: Text('Image not available')),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       const Text('Ingredients', style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 6),
@@ -341,29 +308,7 @@ class _HistoryTabState extends State<HistoryTab> {
                           padding: const EdgeInsets.all(14),
                           child: Row(
                             children: [
-                              Container(
-                                width: 52,
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    recipeImageUrl(recipe).isNotEmpty
-                                        ? recipeImageUrl(recipe)
-                                        : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&h=100&fit=crop',
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        color: Colors.black.withOpacity(0.08),
-                                        child: const Icon(Icons.restaurant, color: Colors.black87),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
+                              
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
