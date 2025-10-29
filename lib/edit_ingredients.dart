@@ -7,11 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditIngredientsPage extends StatefulWidget {
   final Map<String, dynamic> initialIngredients;
-  final String imageUrl;
 
   const EditIngredientsPage({
     required this.initialIngredients,
-    required this.imageUrl,
     Key? key,
   }) : super(key: key);
 
@@ -55,19 +53,25 @@ class _EditIngredientsPageState extends State<EditIngredientsPage> {
   Future<void> _generateRecipe() async {
     final apiKey = dotenv.env['OPENAI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Missing OpenAI API key')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Missing OpenAI API key')));
       return;
     }
 
-    // Collect updated ingredients
+    // Collect updated ingredients: name -> qty
     final updatedIngredients = <String, String>{};
     for (final row in _items) {
       final name = row['name']?.text.trim() ?? '';
       final qty = row['quantity']?.text.trim() ?? '';
       if (name.isEmpty) continue;
       updatedIngredients[name] = qty.isEmpty ? '1' : qty;
+    }
+
+    // Quick UX guard: require at least 2 items to generate a reasonable recipe
+    if (updatedIngredients.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not enough ingredients to generate a recipe. Add more items and try again.')),
+      );
+      return;
     }
 
     setState(() => _isLoading = true);
@@ -79,23 +83,57 @@ class _EditIngredientsPageState extends State<EditIngredientsPage> {
         'Authorization': 'Bearer $apiKey',
       };
 
-      final prompt = '''
-You are an expert chef AI. Using ONLY the following available ingredients and their quantities, generate a single recipe and respond with ONLY a JSON object (no prose) matching this exact structure:
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) throw 'User not logged in';
 
+      // Fetch user profile data (for personalization)
+      final profileResponse = await supabase
+          .from('profiles')
+          .select('skill_level, favorite_cuisines, allergies, cooking_equipment')
+          .eq('id', user.id)
+          .single();
+
+      final int skillLevel = profileResponse['skill_level'] ?? 1;
+      final List<String> favoriteCuisines =
+          (profileResponse['favorite_cuisines'] is List) ? List<String>.from(profileResponse['favorite_cuisines']) : <String>[];
+      final List<String> allergies =
+          (profileResponse['allergies'] is List) ? List<String>.from(profileResponse['allergies']) : <String>[];
+      final List<String> cookingEquipment =
+          (profileResponse['cooking_equipment'] is List) ? List<String>.from(profileResponse['cooking_equipment']) : <String>[];
+
+      // Build inventory JSON (name -> quantity) for the prompt
+      final inventoryJson = jsonEncode(updatedIngredients);
+
+      // Prompt: no image vision here. Only use provided inventory.
+      // New rule: if not enough for a reasonable recipe, respond EXACTLY "INSUFFICIENT_INGREDIENTS" (no JSON).
+      final prompt = '''
+You are an AI for a recipe app. Generate a single recipe using ONLY the ingredients provided in the user's inventory below.
+
+User Profile:
+- Skill Level: $skillLevel/10
+- Favorite Cuisines: ${favoriteCuisines.isNotEmpty ? favoriteCuisines.join(', ') : 'None'}
+- Allergies/Restrictions: ${allergies.isNotEmpty ? allergies.join(', ') : 'None'}
+- Available Cooking Equipment: ${cookingEquipment.isNotEmpty ? cookingEquipment.join(', ') : 'Basic tools assumed'}
+
+Inventory (JSON object of name -> quantity):
+$inventoryJson
+
+If the provided inventory does not contain enough ingredients to create a reasonable recipe, respond with the single token:
+INSUFFICIENT_INGREDIENTS
+Do not include any other text or formatting in that case.
+
+Otherwise, strictly respond with JSON only (no markdown fences) in this schema:
 {
-  "title": "String",
+  "title": "Recipe Title",
   "summary": "Short summary of the dish",
   "ingredients": [{"name": "ingredient", "quantity": "amount"}],
-  "directions": ["Step 1", "Step 2", "Step 3"],
+  "directions": ["Step 1", "Step 2", "Step 3"]
 }
 
-Requirements:
-- The "ingredients" array MUST contain only the ingredients that are actually used in the recipe (do NOT include other items present in the fridge).
-- Quantities should be concise (e.g., "2", "1 cup", "2 slices").
-
-Available ingredients (name -> quantity): $updatedIngredients
-
-Return strictly valid JSON and nothing else (no markdown fences). If you cannot create a recipe, return a JSON object with an "error" field describing the reason.
+Rules:
+- Only include ingredients that are actually used in the recipe (subset of the provided inventory).
+- Tailor complexity to skill level; prefer favorite cuisines; avoid allergens; respect available equipment.
 ''';
 
       final payload = {
@@ -105,8 +143,8 @@ Return strictly valid JSON and nothing else (no markdown fences). If you cannot 
             'role': 'user',
             'content': [
               {'type': 'input_text', 'text': prompt},
-            ]
-          }
+            ],
+          },
         ],
         'temperature': 0.6,
         'max_output_tokens': 600,
@@ -119,29 +157,42 @@ Return strictly valid JSON and nothing else (no markdown fences). If you cannot 
 
       final data = jsonDecode(response.body);
 
-      // Extract text response
+      // Extract only output_text
       String result = '';
-      if (data['output'] is List) {
-        for (final item in data['output']) {
-          if (item['content'] is List) {
-            for (final c in item['content']) {
-              if (c['type'] == 'output_text') result += c['text'];
+      final output = data['output'];
+      if (output is List) {
+        for (final item in output) {
+          final content = item is Map ? item['content'] : null;
+          if (content is List) {
+            for (final c in content) {
+              if (c is Map && c['type'] == 'output_text' && c['text'] is String) {
+                result += c['text'] as String;
+              }
             }
           }
         }
       }
 
-      // Sanitize AI output: strip markdown fences and surrounding text so
-      // `jsonDecode` receives a clean JSON string. The model often returns
-      // ```json\n{...}\n``` which causes jsonDecode to throw.
-      String sanitized = result.trim();
+      // Handle explicit insufficient-ingredients signal from the model
+      final trimmed = result.trim();
+      if (trimmed == 'INSUFFICIENT_INGREDIENTS') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Not enough ingredients to generate a recipe. Add more items and try again.')),
+          );
+        }
+        return;
+      }
+
+      // Sanitize fences if present
+      String sanitized = trimmed;
       if (sanitized.startsWith('```')) {
         final firstBrace = sanitized.indexOf(RegExp(r'[\[{]'));
         final lastBrace = sanitized.lastIndexOf(RegExp(r'[\]}]'));
         if (firstBrace != -1 && lastBrace != -1 && lastBrace >= firstBrace) {
           sanitized = sanitized.substring(firstBrace, lastBrace + 1);
         } else {
-          sanitized = sanitized.replaceAll('```', '');
+          sanitized = sanitized.replaceAll('```', '').trim();
         }
       } else {
         final firstBrace = sanitized.indexOf(RegExp(r'[\[{]'));
@@ -151,46 +202,76 @@ Return strictly valid JSON and nothing else (no markdown fences). If you cannot 
         }
       }
 
-      final recipe = jsonDecode(sanitized);
+      final decoded = jsonDecode(sanitized);
+      if (decoded is! Map<String, dynamic>) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unexpected AI response. Please try again.')));
+        return;
+      }
 
-      // Save recipe to Supabase
-      final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
-      if (user == null) throw 'User not logged in';
+      final String title = (decoded['title'] ?? '').toString();
+      final String summary = (decoded['summary'] ?? '').toString();
+      final dynamic rawIngredients = decoded['ingredients'];
+      final dynamic rawDirections = decoded['directions'];
 
-      // Normalize returned ingredients into a List<Map{name,quantity}>
-      final rawIngredients = recipe['ingredients'];
-      final List<String> normalizedIngredients = [];
+      // Empty or missing fields -> show snackbar
+      if (title.isEmpty || rawIngredients == null || rawDirections == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Incomplete recipe from AI.')));
+        return;
+      }
+      final bool noIngredients =
+          (rawIngredients is List && rawIngredients.isEmpty) ||
+          (rawIngredients is Map && rawIngredients.isEmpty);
+      if (noIngredients) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not enough ingredients to generate a recipe. Add more items and try again.')),
+        );
+        return;
+      }
+
+      // Normalize ingredients to UI-friendly display strings: "Name (Qty)"
+      final List<String> normalizedIngredients = <String>[];
       if (rawIngredients is Map) {
         rawIngredients.forEach((k, v) {
-          final qty = v is Map && v.containsKey('quantity') ? v['quantity'] : v;
-          final qtyStr = qty?.toString() ?? '';
-          normalizedIngredients.add("${k.toString()} ($qtyStr)");
+          final qty = (v is Map && v.containsKey('quantity')) ? v['quantity'] : v;
+          final qtyStr = qty?.toString().trim().isEmpty == true ? '1' : qty.toString();
+          normalizedIngredients.add('${k.toString()} ($qtyStr)');
         });
       } else if (rawIngredients is List) {
         for (final item in rawIngredients) {
-          if (item is String) {
-            final qty = updatedIngredients[item] ?? '1';
-            normalizedIngredients.add("$item $qty");
-          } else if (item is Map) {
-            final name = item['name'] ?? item['ingredient'] ?? (item.keys.isNotEmpty ? item.keys.first : null);
-            final qtyRaw = item['quantity'] ?? item['qty'] ?? (name != null ? updatedIngredients[name] ?? '1' : '1');
-            final qty = qtyRaw?.toString() ?? '';
-            normalizedIngredients.add("${name.toString()} ($qty)");
+          if (item is Map) {
+            final name = (item['name'] ?? item['ingredient'] ?? (item.keys.isNotEmpty ? item.keys.first : '')).toString();
+            if (name.isEmpty) continue;
+            final qRaw = item['quantity'] ?? item['qty'] ?? updatedIngredients[name] ?? '1';
+            final qtyStr = qRaw.toString().trim().isEmpty ? '1' : qRaw.toString();
+            normalizedIngredients.add('$name ($qtyStr)');
+          } else if (item is String) {
+            final qtyStr = (updatedIngredients[item] ?? '1').toString();
+            normalizedIngredients.add('$item ($qtyStr)');
           } else {
-            final s = item.toString();
-            normalizedIngredients.add("$s (1)");
+            normalizedIngredients.add('${item.toString()} (1)');
           }
         }
       }
 
+      // Normalize directions to List<String>
+      final List<String> directions = <String>[];
+      if (rawDirections is String) {
+        directions.add(rawDirections);
+      } else if (rawDirections is List) {
+        for (final d in rawDirections) {
+          directions.add(d.toString());
+        }
+      } else {
+        directions.add(rawDirections.toString());
+      }
 
+      // Insert recipe. Save only display strings for ingredients. Use user_id.
       await supabase.from('recipes').insert({
         'user_id': user.id,
-        'title': recipe['title'],
-        'summary': recipe['summary'],
+        'title': title,
+        'summary': summary,
         'ingredients': normalizedIngredients,
-        'directions': recipe['directions'],
+        'directions': directions,
         'created_at': DateTime.now().toIso8601String(),
       });
 
@@ -204,10 +285,8 @@ Return strictly valid JSON and nothing else (no markdown fences). If you cannot 
         );
       }
     } catch (e) {
-      print('Error generating recipe: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error generating recipe: $e')),
-      );
+      debugPrint('Error generating recipe: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating recipe: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

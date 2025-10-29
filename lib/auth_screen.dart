@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_signin_button/flutter_signin_button.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:recipeme/profile_page.dart';
+import 'package:recipeme/profile_setup.dart';
 import 'home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -101,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
           );
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => MainPage()),
+            MaterialPageRoute(builder: (context) => ProfileSetupPage1()),
           );
         }
       } else {
@@ -159,16 +161,67 @@ class _LoginPageState extends State<LoginPage> {
     if (idToken == null) {
       throw 'No ID Token found.';
     }
-    Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => MainPage()),
-          );
 
-    return supabase.auth.signInWithIdToken(
+    // Sign in with Supabase
+    final authResponse = await supabase.auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,
       accessToken: accessToken,
     );
+
+    // After successful sign-in, check if the user has a profile
+    final user = supabase.auth.currentUser;
+    if (user != null && context.mounted) {
+      try {
+        // Query the profiles table to see if the user exists
+        final profileResponse = await supabase
+            .from('profiles')
+            .select('id') // Just check for existence; select minimal data
+            .eq('id', user.id)
+            .maybeSingle(); // Use maybeSingle to avoid errors if no row exists
+
+        if (profileResponse == null) {
+          // No profile found: new user, go to setup
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Account created! Let\'s set up your profile.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => ProfileSetupPage1()),
+          );
+        } else {
+          // Profile exists: existing user, go to main page
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Signed in successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainPage()),
+          );
+        }
+      } catch (e) {
+        // Handle query errors gracefully
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign in succeeded, but profile check failed: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        // Fallback: assume new user and go to setup
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => ProfileSetupPage1()),
+        );
+      }
+    }
+
+    return authResponse;
   }
 
   @override
