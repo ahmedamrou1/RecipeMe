@@ -528,72 +528,82 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
+
           // Image preview overlay
           if (_selectedImage != null)
             Container(
-              color: Colors.black.withOpacity(0.8),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Container(
-                      margin: EdgeInsets.all(20),
-                      child: Image.file(_selectedImage!, fit: BoxFit.contain),
+              color: Colors.black.withOpacity(0.95),
+              child: SafeArea(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.file(
+                        _selectedImage!,
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                  ),
-                  // Confirm button at bottom
-                  Positioned(
-                    bottom: 100,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // Cancel button
-                        Container(
-                          width: 120,
-                          height: 50,
-                          child: ElevatedButton(
+                    Positioned(
+                      top: 20,
+                      left: 8,
+                      right: 8,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.white, size: 28),
                             onPressed: _cancelImage,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                            ),
+                          ),
+                          Expanded(
                             child: Text(
-                              'Cancel',
+                              'Make sure image is clear and all items are visible.',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Colors.white,
+                                fontFamily: 'Inter',
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(
+                                    blurRadius: 4,
+                                    color: Colors.black54,
+                                    offset: Offset(1, 1),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ),
-                        // Confirm button
-                        Container(
-                          width: 120,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: _confirmImage,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                            ),
-                            child: Text(
-                              'Confirm',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                          SizedBox(width: 48), // space to balance layout
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 20,
+                      left: 40,
+                      right: 40,
+                      child: ElevatedButton(
+                        onPressed: _confirmImage,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent.shade700,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 8,
+                        ),
+                        child: Text(
+                          'Send to AI',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
