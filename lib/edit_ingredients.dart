@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:recipeme/history_tab.dart';
+import 'package:recipeme/recipe_selection_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditIngredientsPage extends StatefulWidget {
@@ -36,7 +37,7 @@ class _EditIngredientsPageState extends State<EditIngredientsPage> {
     } else {
       _items.add({
         'name': TextEditingController(text: ''),
-        'quantity': TextEditingController(text: '1'),
+        'quantity': TextEditingController(text: ''),
       });
     }
   }
@@ -63,7 +64,7 @@ class _EditIngredientsPageState extends State<EditIngredientsPage> {
       final name = row['name']?.text.trim() ?? '';
       final qty = row['quantity']?.text.trim() ?? '';
       if (name.isEmpty) continue;
-      updatedIngredients[name] = qty.isEmpty ? '1' : qty;
+      updatedIngredients[name] = qty.isEmpty ? '' : qty;
     }
 
     // Quick UX guard: require at least 2 items to generate a reasonable recipe
@@ -108,7 +109,7 @@ class _EditIngredientsPageState extends State<EditIngredientsPage> {
       // Prompt: no image vision here. Only use provided inventory.
       // New rule: if not enough for a reasonable recipe, respond EXACTLY "INSUFFICIENT_INGREDIENTS" (no JSON).
       final prompt = '''
-You are an AI for a recipe app. Generate a single recipe using ONLY the ingredients provided in the user's inventory below.
+You are an AI for a recipe app. Generate 3-5 different recipe options using ONLY the ingredients provided in the user's inventory below.
 
 User Profile:
 - Skill Level: $skillLevel/10
@@ -119,21 +120,33 @@ User Profile:
 Inventory (JSON object of name -> quantity):
 $inventoryJson
 
-If the provided inventory does not contain enough ingredients to create a reasonable recipe, respond with the single token:
+If the provided inventory does not contain enough ingredients to create reasonable recipes, respond with the single token:
 INSUFFICIENT_INGREDIENTS
 Do not include any other text or formatting in that case.
 
 Otherwise, strictly respond with JSON only (no markdown fences) in this schema:
 {
-  "title": "Recipe Title",
-  "summary": "Short summary of the dish",
-  "ingredients": [{"name": "ingredient", "quantity": "amount"}],
-  "directions": ["Step 1", "Step 2", "Step 3"]
+  "recipes": [
+    {
+      "title": "Recipe Title 1",
+      "summary": "Short summary of the dish",
+      "ingredients": [{"name": "ingredient", "quantity": "amount"}],
+      "directions": ["Step 1", "Step 2", "Step 3"]
+    },
+    {
+      "title": "Recipe Title 2",
+      "summary": "Short summary of the dish",
+      "ingredients": [{"name": "ingredient", "quantity": "amount"}],
+      "directions": ["Step 1", "Step 2", "Step 3"]
+    }
+  ]
 }
 
 Rules:
-- Only include ingredients that are actually used in the recipe (subset of the provided inventory).
+- Generate 3-5 different recipe options that vary in style, cuisine, or cooking method.
+- Only include ingredients that are actually used in each recipe (subset of the provided inventory).
 - Tailor complexity to skill level; prefer favorite cuisines; avoid allergens; respect available equipment.
+- Each recipe should be unique and offer variety.
 ''';
 
       final payload = {
@@ -146,8 +159,8 @@ Rules:
             ],
           },
         ],
-        'temperature': 0.6,
-        'max_output_tokens': 600,
+        'temperature': 0.7,
+        'max_output_tokens': 2000,
       };
 
       final response = await http.post(uri, headers: headers, body: jsonEncode(payload));
@@ -208,79 +221,61 @@ Rules:
         return;
       }
 
-      final String title = (decoded['title'] ?? '').toString();
-      final String summary = (decoded['summary'] ?? '').toString();
-      final dynamic rawIngredients = decoded['ingredients'];
-      final dynamic rawDirections = decoded['directions'];
+      // Check if response has a "recipes" array (multiple recipes) or single recipe format
+      List<Map<String, dynamic>> recipesList = [];
+      
+      if (decoded.containsKey('recipes') && decoded['recipes'] is List) {
+        // Multiple recipes format
+        final rawRecipes = decoded['recipes'] as List;
+        for (final recipe in rawRecipes) {
+          if (recipe is Map<String, dynamic>) {
+            final String title = (recipe['title'] ?? '').toString();
+            final dynamic rawIngredients = recipe['ingredients'];
+            final dynamic rawDirections = recipe['directions'];
 
-      // Empty or missing fields -> show snackbar
-      if (title.isEmpty || rawIngredients == null || rawDirections == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Incomplete recipe from AI.')));
-        return;
-      }
-      final bool noIngredients =
-          (rawIngredients is List && rawIngredients.isEmpty) ||
-          (rawIngredients is Map && rawIngredients.isEmpty);
-      if (noIngredients) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Not enough ingredients to generate a recipe. Add more items and try again.')),
-        );
-        return;
-      }
+            // Validate recipe has required fields
+            if (title.isEmpty || rawIngredients == null || rawDirections == null) continue;
+            
+            final bool noIngredients =
+                (rawIngredients is List && rawIngredients.isEmpty) ||
+                (rawIngredients is Map && rawIngredients.isEmpty);
+            if (noIngredients) continue;
 
-      // Normalize ingredients to UI-friendly display strings: "Name (Qty)"
-      final List<String> normalizedIngredients = <String>[];
-      if (rawIngredients is Map) {
-        rawIngredients.forEach((k, v) {
-          final qty = (v is Map && v.containsKey('quantity')) ? v['quantity'] : v;
-          final qtyStr = qty?.toString().trim().isEmpty == true ? '1' : qty.toString();
-          normalizedIngredients.add('${k.toString()} ($qtyStr)');
-        });
-      } else if (rawIngredients is List) {
-        for (final item in rawIngredients) {
-          if (item is Map) {
-            final name = (item['name'] ?? item['ingredient'] ?? (item.keys.isNotEmpty ? item.keys.first : '')).toString();
-            if (name.isEmpty) continue;
-            final qRaw = item['quantity'] ?? item['qty'] ?? updatedIngredients[name] ?? '1';
-            final qtyStr = qRaw.toString().trim().isEmpty ? '1' : qRaw.toString();
-            normalizedIngredients.add('$name ($qtyStr)');
-          } else if (item is String) {
-            final qtyStr = (updatedIngredients[item] ?? '1').toString();
-            normalizedIngredients.add('$item ($qtyStr)');
-          } else {
-            normalizedIngredients.add('${item.toString()} (1)');
+            recipesList.add(recipe);
+          }
+        }
+      } else {
+        // Single recipe format (backward compatibility)
+        final String title = (decoded['title'] ?? '').toString();
+        final dynamic rawIngredients = decoded['ingredients'];
+        final dynamic rawDirections = decoded['directions'];
+
+        if (title.isNotEmpty && rawIngredients != null && rawDirections != null) {
+          final bool noIngredients =
+              (rawIngredients is List && rawIngredients.isEmpty) ||
+              (rawIngredients is Map && rawIngredients.isEmpty);
+          if (!noIngredients) {
+            recipesList.add(decoded);
           }
         }
       }
 
-      // Normalize directions to List<String>
-      final List<String> directions = <String>[];
-      if (rawDirections is String) {
-        directions.add(rawDirections);
-      } else if (rawDirections is List) {
-        for (final d in rawDirections) {
-          directions.add(d.toString());
-        }
-      } else {
-        directions.add(rawDirections.toString());
+      if (recipesList.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No valid recipes generated. Please try again.')),
+        );
+        return;
       }
 
-      // Insert recipe. Save only display strings for ingredients. Use user_id.
-      await supabase.from('recipes').insert({
-        'user_id': user.id,
-        'title': title,
-        'summary': summary,
-        'ingredients': normalizedIngredients,
-        'directions': directions,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
+      // Navigate to recipe selection screen
       if (context.mounted) {
         Navigator.pushReplacement(
           context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => HistoryTab(),
-            transitionDuration: Duration.zero,
+          MaterialPageRoute(
+            builder: (context) => RecipeSelectionScreen(
+              recipes: recipesList,
+              updatedIngredients: updatedIngredients,
+            ),
           ),
         );
       }
@@ -295,106 +290,188 @@ Rules:
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF50C878),
       appBar: AppBar(
-        title: const Text('Edit Ingredients'),
+        title: const Text(
+          'Edit Ingredients',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: _items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final row = _items[index];
-                        return Row(
-                          children: [
-                            Expanded(
-                              flex: 6,
-                              child: TextField(
-                                controller: row['name'],
-                                decoration: const InputDecoration(
-                                  labelText: 'Ingredient',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                controller: row['quantity'],
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Qty',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: () {
-                                    setState(() {
-                                      if (_items.length > 1) {
-                                        final removed = _items.removeAt(index);
-                                        removed['name']?.dispose();
-                                        removed['quantity']?.dispose();
-                                      } else {
-                                        // clear the single remaining row
-                                        _items[0]['name']?.text = '';
-                                        _items[0]['quantity']?.text = '1';
-                                      }
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/background.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
                     children: [
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _items.add({
-                                'name': TextEditingController(text: ''),
-                                'quantity': TextEditingController(text: '1'),
-                              });
-                            });
+                        child: ListView.separated(
+                          itemCount: _items.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final row = _items[index];
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 6,
+                                      child: TextField(
+                                        controller: row['name'],
+                                        decoration: InputDecoration(
+                                          labelText: 'Ingredient',
+                                          labelStyle: TextStyle(color: Colors.black87),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          filled: true,
+                                          fillColor: Colors.grey[50],
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      flex: 3,
+                                      child: TextField(
+                                        controller: row['quantity'],
+                                        keyboardType: TextInputType.text,
+                                        decoration: InputDecoration(
+                                          labelText: 'Quantity',
+                                          hintText: 'e.g., 1 bushel',
+                                          labelStyle: TextStyle(color: Colors.black87),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          filled: true,
+                                          fillColor: Colors.grey[50],
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 24),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (_items.length > 1) {
+                                            final removed = _items.removeAt(index);
+                                            removed['name']?.dispose();
+                                            removed['quantity']?.dispose();
+                                          } else {
+                                            // clear the single remaining row
+                                            _items[0]['name']?.text = '';
+                                            _items[0]['quantity']?.text = '';
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
                           },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add ingredient'),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _generateRecipe,
-                          icon: const Icon(Icons.local_dining),
-                          label: const Text('Generate Recipe'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            minimumSize: const Size(double.infinity, 50),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _items.add({
+                                      'name': TextEditingController(text: ''),
+                                      'quantity': TextEditingController(text: ''),
+                                    });
+                                  });
+                                },
+                                icon: const Icon(Icons.add, color: Colors.black87),
+                                label: const Text(
+                                  'Add ingredient',
+                                  style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide.none,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading ? null : _generateRecipe,
+                                icon: const Icon(Icons.local_dining, color: Colors.white),
+                                label: const Text(
+                                  'Generate Recipe',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF50C878),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
     );
