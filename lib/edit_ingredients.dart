@@ -322,15 +322,9 @@ Rules:
                             final row = _items[index];
                             return Container(
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: Colors.black.withOpacity(0.65),
                                 borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
+                                border: Border.all(color: Colors.white.withOpacity(0.3)),
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.all(14.0),
@@ -340,14 +334,25 @@ Rules:
                                       flex: 6,
                                       child: TextField(
                                         controller: row['name'],
+                                        style: TextStyle(color: Colors.white, fontSize: 16),
                                         decoration: InputDecoration(
                                           labelText: 'Ingredient',
-                                          labelStyle: TextStyle(color: Colors.black87),
+                                          labelStyle: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16),
                                           border: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
                                           ),
                                           filled: true,
-                                          fillColor: Colors.grey[50],
+                                          fillColor: Colors.transparent,
                                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                                         ),
                                       ),
@@ -358,22 +363,33 @@ Rules:
                                       child: TextField(
                                         controller: row['quantity'],
                                         keyboardType: TextInputType.text,
+                                        style: TextStyle(color: Colors.white, fontSize: 16),
                                         decoration: InputDecoration(
                                           labelText: 'Quantity',
                                           hintText: 'e.g., 1 bushel',
-                                          labelStyle: TextStyle(color: Colors.black87),
+                                          labelStyle: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 15),
+                                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16),
                                           border: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
                                           ),
                                           filled: true,
-                                          fillColor: Colors.grey[50],
+                                          fillColor: Colors.transparent,
                                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 24),
+                                      icon: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
                                       onPressed: () {
                                         setState(() {
                                           if (_items.length > 1) {

@@ -280,6 +280,7 @@ class _HistoryTabState extends State<HistoryTab> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: const Text('History', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
