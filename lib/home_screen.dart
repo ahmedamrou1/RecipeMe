@@ -115,6 +115,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
+  bool _isLoading = false;
 
   // image compression removed
 
@@ -137,6 +138,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _confirmImage() async {
     if (_selectedImage == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       final supabase = Supabase.instance.client;
@@ -377,6 +382,12 @@ class _HomePageState extends State<HomePage> {
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -603,6 +614,17 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+
+          // Loading overlay
+          if (_isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.8),
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
             ),
