@@ -420,7 +420,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Tips for Photos (i.e.\nmake sure area is well lit, all items visible)',
+                    'Take or upload a photo to begin!',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'onboarding_screen.dart';
+import 'package:recipeme/auth_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future<void>.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
+      MaterialPageRoute<void>(builder: (_) => const LoginPage()),
     );
   }
 
